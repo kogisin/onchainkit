@@ -1,7 +1,8 @@
 import { useMorphoVault } from '@/earn/hooks/useMorphoVault';
 import { useGetTokenBalance } from '@/wallet/hooks/useGetTokenBalance';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, render, renderHook } from '@testing-library/react';
+import { render, renderHook } from '@testing-library/react';
+import { act } from 'react';
 import { baseSepolia } from 'viem/chains';
 import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, WagmiProvider, createConfig, mock, useAccount } from 'wagmi';
@@ -124,7 +125,7 @@ describe('EarnProvider', () => {
     const { result } = renderHook(() => useEarnContext(), { wrapper });
 
     await act(async () => {
-      await result.current.setDepositAmount('100');
+      result.current.setDepositAmount('100');
     });
 
     expect(result.current.depositAmount).toBe('100');
@@ -149,7 +150,7 @@ describe('EarnProvider', () => {
     const { result } = renderHook(() => useEarnContext(), { wrapper });
 
     await act(async () => {
-      await result.current.setWithdrawAmount('50');
+      result.current.setWithdrawAmount('50');
     });
 
     expect(result.current.withdrawAmount).toBe('50');
@@ -160,5 +161,84 @@ describe('EarnProvider', () => {
         token: result.current.vaultToken,
       },
     });
+  });
+
+  // Input validation
+  // Deposit
+  it('returns an error when depositAmount is set to 0', async () => {
+    const { result } = renderHook(() => useEarnContext(), { wrapper });
+
+    await act(async () => {
+      result.current.setDepositAmount('0');
+    });
+
+    expect(result.current.depositAmountError).toBe('Must be greater than 0');
+  });
+
+  it('returns null when depositAmount is set to a positive number less than or equal to underlyingBalance', async () => {
+    (useGetTokenBalance as Mock).mockReturnValue({
+      convertedBalance: '100',
+    });
+
+    const { result } = renderHook(() => useEarnContext(), { wrapper });
+
+    await act(async () => {
+      result.current.setDepositAmount('10');
+    });
+
+    expect(result.current.depositAmountError).toBeNull();
+  });
+
+  // Withdraw
+  it('returns an error when withdrawAmount is set to 0', async () => {
+    const { result } = renderHook(() => useEarnContext(), { wrapper });
+
+    await act(async () => {
+      result.current.setWithdrawAmount('0');
+    });
+
+    expect(result.current.withdrawAmountError).toBe('Must be greater than 0');
+  });
+
+  it('returns an error when withdrawAmount is greater than receiptBalance', async () => {
+    (useMorphoVault as Mock).mockReturnValue({
+      balance: '1',
+    });
+
+    const { result } = renderHook(() => useEarnContext(), { wrapper });
+
+    await act(async () => {
+      result.current.setWithdrawAmount('2');
+    });
+
+    expect(result.current.withdrawAmountError).toBe(
+      'Amount exceeds the balance',
+    );
+  });
+
+  it('passes token decimals to withdrawCalls when vaultToken exists', () => {
+    (useMorphoVault as Mock).mockReturnValue({
+      asset: {
+        address: DUMMY_ADDRESS,
+        decimals: 18,
+        symbol: 'TEST',
+      },
+      balance: '100',
+      totalApy: '0.05',
+    });
+
+    const { result } = renderHook(() => useEarnContext(), { wrapper });
+    expect(result.current.vaultToken?.decimals).toBe(18);
+  });
+
+  it('handles undefined token decimals in withdrawCalls when vaultToken is undefined', () => {
+    (useMorphoVault as Mock).mockReturnValue({
+      asset: undefined,
+      balance: '100',
+      totalApy: '0.05',
+    });
+
+    const { result } = renderHook(() => useEarnContext(), { wrapper });
+    expect(result.current.vaultToken).toBeUndefined();
   });
 });

@@ -1,5 +1,6 @@
+import { MOCK_EARN_CONTEXT } from '@/earn/mocks';
 import type { EarnContextType } from '@/earn/types';
-import { usdcToken } from '@/token/constants';
+import type { MakeRequired } from '@/internal/types';
 import type { Call } from '@/transaction/types';
 import { render, screen } from '@testing-library/react';
 import type { Address } from 'viem';
@@ -9,20 +10,9 @@ import { useEarnContext } from './EarnProvider';
 import { WithdrawButton } from './WithdrawButton';
 
 // Address required to avoid connect wallet prompt
-const baseContext: EarnContextType & { address: Address } = {
-  convertedBalance: '1000',
-  setDepositAmount: vi.fn(),
-  vaultAddress: '0x123' as Address,
-  depositAmount: '0',
-  depositedAmount: '0',
-  withdrawAmount: '0',
-  setWithdrawAmount: vi.fn(),
-  depositCalls: [],
-  withdrawCalls: [],
-  address: '0x123' as Address,
-  vaultToken: usdcToken,
-  lifecycleStatus: { statusName: 'init', statusData: null },
-  updateLifecycleStatus: vi.fn(),
+const baseContext: MakeRequired<EarnContextType, 'recipientAddress'> = {
+  ...MOCK_EARN_CONTEXT,
+  recipientAddress: '0x123' as Address,
 };
 
 vi.mock('./EarnProvider', () => ({
@@ -50,10 +40,14 @@ vi.mock('@/transaction', async (importOriginal) => {
     ),
     Transaction: ({
       onStatus,
+      onSuccess,
       children,
       capabilities,
     }: {
       onStatus: (status: { statusName: string }) => void;
+      onSuccess: (response: {
+        transactionReceipts: Array<{ status: string }>;
+      }) => void;
       children: React.ReactNode;
       capabilities: { paymasterService: { url: string } };
     }) => (
@@ -78,10 +72,14 @@ vi.mock('@/transaction', async (importOriginal) => {
           <button
             type="button"
             data-testid="transaction-button"
-            onClick={() => onStatus({ statusName: 'success' })}
+            onClick={() => {
+              onStatus({ statusName: 'success' });
+              onSuccess({ transactionReceipts: [{ status: 'success' }] });
+            }}
           >
             Success
           </button>
+
           <button
             type="button"
             data-testid="transaction-button"
@@ -109,7 +107,7 @@ describe('WithdrawButton Component', () => {
   it('renders ConnectWallet if no account is connected', () => {
     vi.mocked(useEarnContext).mockReturnValue({
       ...baseContext,
-      address: undefined,
+      recipientAddress: undefined,
     });
 
     vi.mocked(useAccount as Mock).mockReturnValue({
@@ -132,10 +130,10 @@ describe('WithdrawButton Component', () => {
   });
 
   it('renders Transaction with depositCalls from EarnProvider', () => {
-    const mockDepositCalls = [{ to: '0x123', data: '0x456' }] as Call[];
+    const mockWithdrawCalls = [{ to: '0x123', data: '0x456' }] as Call[];
     vi.mocked(useEarnContext).mockReturnValue({
       ...baseContext,
-      depositCalls: mockDepositCalls,
+      withdrawCalls: mockWithdrawCalls,
     });
 
     render(<WithdrawButton />);
@@ -147,7 +145,8 @@ describe('WithdrawButton Component', () => {
   it('renders TransactionButton with the correct text', () => {
     vi.mocked(useEarnContext).mockReturnValue({
       ...baseContext,
-      depositCalls: [],
+      withdrawAmount: '',
+      withdrawCalls: [],
     });
 
     const { container } = render(<WithdrawButton />);
@@ -159,7 +158,7 @@ describe('WithdrawButton Component', () => {
     const mockUpdateLifecycleStatus = vi.fn();
     vi.mocked(useEarnContext).mockReturnValue({
       ...baseContext,
-      depositCalls: [{ to: '0x123', data: '0x456' }],
+      withdrawCalls: [{ to: '0x123', data: '0x456' }],
       updateLifecycleStatus: mockUpdateLifecycleStatus,
     });
 
@@ -180,5 +179,31 @@ describe('WithdrawButton Component', () => {
     expect(mockUpdateLifecycleStatus).toHaveBeenCalledWith({
       statusName: 'error',
     });
+  });
+
+  it('clears the withdraw amount after a successful transaction', async () => {
+    const mockSetWithdrawAmount = vi.fn();
+    vi.mocked(useEarnContext).mockReturnValue({
+      ...baseContext,
+      setWithdrawAmount: mockSetWithdrawAmount,
+    });
+
+    render(<WithdrawButton />);
+
+    screen.getByText('Success').click();
+    expect(mockSetWithdrawAmount).toHaveBeenCalledWith('');
+  });
+
+  it('disables the button and shows an error message when there is an error', () => {
+    vi.mocked(useEarnContext).mockReturnValue({
+      ...baseContext,
+      withdrawAmountError: 'Error',
+    });
+
+    render(<WithdrawButton />);
+
+    const transactionButton = screen.getByTestId('transactionButton');
+    expect(transactionButton).toBeDisabled();
+    expect(transactionButton).toHaveTextContent('Error');
   });
 });
