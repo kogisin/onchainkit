@@ -1,8 +1,7 @@
-import { useAnalytics } from '@/core/analytics/hooks/useAnalytics';
-import { MintEvent } from '@/core/analytics/types';
 import { Spinner } from '@/internal/components/Spinner';
 import { useNFTLifecycleContext } from '@/nft/components/NFTLifecycleProvider';
 import { useNFTContext } from '@/nft/components/NFTProvider';
+import { useMintAnalytics } from '@/nft/hooks/useMintAnalytics';
 import { cn, color, text } from '@/styles/theme';
 import {
   Transaction,
@@ -50,7 +49,7 @@ export function NFTMintButton({
   const { updateLifecycleStatus } = useNFTLifecycleContext();
   const [callData, setCallData] = useState<Call[]>([]);
   const [mintError, setMintError] = useState<string | null>(null);
-  const { sendAnalytics } = useAnalytics();
+  const { setTransactionState } = useMintAnalytics();
 
   const handleTransactionError = useCallback(
     (error: string) => {
@@ -73,11 +72,7 @@ export function NFTMintButton({
       try {
         setCallData([]);
         setMintError(null);
-        sendAnalytics(MintEvent.MintInitiated, {
-          contractAddress,
-          quantity,
-          tokenId,
-        });
+        setTransactionState('buildingTransaction');
         const mintTransaction = await buildMintTransaction({
           takerAddress: address,
           contractAddress,
@@ -101,7 +96,7 @@ export function NFTMintButton({
     name,
     network,
     quantity,
-    sendAnalytics,
+    setTransactionState,
     tokenId,
   ]);
 
@@ -113,6 +108,8 @@ export function NFTMintButton({
 
   const handleOnStatus = useCallback(
     (transactionStatus: TransactionLifecycleStatus) => {
+      setTransactionState(transactionStatus.statusName);
+
       if (transactionStatus.statusName === 'transactionPending') {
         updateLifecycleStatus({ statusName: 'transactionPending' });
       }
@@ -122,28 +119,10 @@ export function NFTMintButton({
         transactionStatus.statusName === 'success' ||
         transactionStatus.statusName === 'error'
       ) {
-        if (transactionStatus.statusName === 'success') {
-          sendAnalytics(MintEvent.MintSuccess, {
-            address,
-            amountMinted: quantity,
-            contractAddress: contractAddress,
-            isSponsored,
-            tokenId,
-          });
-        }
-
         updateLifecycleStatus(transactionStatus);
       }
     },
-    [
-      updateLifecycleStatus,
-      sendAnalytics,
-      address,
-      quantity,
-      contractAddress,
-      isSponsored,
-      tokenId,
-    ],
+    [updateLifecycleStatus, setTransactionState],
   );
 
   const transactionButtonLabel = useMemo(() => {

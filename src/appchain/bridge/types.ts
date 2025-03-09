@@ -1,6 +1,6 @@
 import type { Token } from '@/token';
-import type { Address, Chain } from 'viem';
-
+import type { ReactNode } from 'react';
+import type { Address, Chain, Hex } from 'viem';
 /**
  * Note: exported as public Type
  */
@@ -27,6 +27,19 @@ export type AppchainBridgeReact = {
   title?: string;
   /** Optional array of bridgeable tokens. */
   bridgeableTokens?: BridgeableToken[];
+  /** Optional function to implement fetching the price of the token. */
+  handleFetchPrice?: (amount: string, token: Token) => Promise<string>;
+};
+
+/**
+ * Note: exported as public Type
+ */
+export type AppchainBridgeProviderReact = {
+  children: ReactNode;
+  chain: Chain;
+  appchain: Appchain;
+  bridgeableTokens?: BridgeableToken[];
+  handleFetchPrice?: (amount: string, token: Token) => Promise<string>;
 };
 
 /**
@@ -39,26 +52,38 @@ export type AppchainBridgeContextType = {
   to: ChainWithIcon;
   bridgeParams: BridgeParams;
   bridgeableTokens: BridgeableToken[];
+
   // UI State
   isPriceLoading: boolean;
   isAddressModalOpen: boolean;
   isWithdrawModalOpen: boolean;
+  isSuccessModalOpen: boolean;
+  isResumeTransactionModalOpen: boolean;
   balance: string;
   depositStatus: string;
   withdrawStatus: string;
   direction: string;
+  depositTransactionHash?: Hex;
+  finalizedWithdrawalTxHash?: Hex;
+  resumeWithdrawalTxHash?: Hex;
 
   // Handler Functions
   handleToggle: () => void;
   handleAmountChange: (params: { amount: string; token: Token }) => void;
   handleAddressSelect: (address: Address) => void;
+  handleResumeTransaction: (txHash: Hex) => void;
   handleDeposit: () => void;
   handleWithdraw: () => void;
-  waitForWithdrawal: () => Promise<void>;
+  handleOpenExplorer: () => void;
+  handleResetState: () => void;
+  waitForWithdrawal: (txHash?: Hex) => Promise<void>;
   proveAndFinalizeWithdrawal: () => Promise<void>;
   setIsAddressModalOpen: (open: boolean) => void;
   setIsWithdrawModalOpen: (open: boolean) => void;
+  setIsSuccessModalOpen: (open: boolean) => void;
   resetDepositStatus: () => void;
+  setResumeWithdrawalTxHash: (txHash: Hex) => void;
+  setIsResumeTransactionModalOpen: (open: boolean) => void;
 };
 
 /**
@@ -93,6 +118,15 @@ export type AppchainConfig = {
     l1ERC721Bridge: Address;
     optimismMintableERC20Factory: Address;
   };
+};
+
+/**
+ * Note: exported as public Type
+ */
+export type AppchainBridgeSuccessReact = {
+  title?: string;
+  primaryButtonLabel?: string;
+  secondaryButtonLabel?: string;
 };
 
 /**

@@ -16,6 +16,7 @@ vi.mock('../hooks/useWithdrawButton', () => ({
 
 describe('AppchainBridgeWithdraw', () => {
   const mockSetIsWithdrawModalOpen = vi.fn();
+  const mockSetIsSuccessModalOpen = vi.fn();
   const mockWaitForWithdrawal = vi.fn();
   const mockProveAndFinalizeWithdrawal = vi.fn();
 
@@ -27,6 +28,7 @@ describe('AppchainBridgeWithdraw', () => {
       waitForWithdrawal: mockWaitForWithdrawal,
       proveAndFinalizeWithdrawal: mockProveAndFinalizeWithdrawal,
       setIsWithdrawModalOpen: mockSetIsWithdrawModalOpen,
+      setIsSuccessModalOpen: mockSetIsSuccessModalOpen,
     });
 
     (useWithdrawButton as Mock).mockReturnValue({
@@ -80,22 +82,18 @@ describe('AppchainBridgeWithdraw', () => {
     expect(mockProveAndFinalizeWithdrawal).toHaveBeenCalledTimes(1);
   });
 
-  it('renders the success state correctly', () => {
+  it('renders the error state correctly', () => {
     (useWithdrawButton as Mock).mockReturnValue({
-      isSuccess: true,
-      buttonDisabled: false,
-      buttonContent: '',
-      shouldShowClaim: false,
-      label: 'Success',
+      isError: true,
     });
 
     render(<AppchainBridgeWithdraw />);
 
-    const backButton = screen.getByText('Back to Bridge');
-    expect(backButton).toBeInTheDocument();
-
-    fireEvent.click(backButton);
-    expect(mockSetIsWithdrawModalOpen).toHaveBeenCalledWith(false);
+    expect(
+      screen.getByText((content) =>
+        content.includes('There was an error processing your withdrawal.'),
+      ),
+    ).toBeInTheDocument();
   });
 
   it('shows error message when claim is rejected', () => {
@@ -122,6 +120,17 @@ describe('AppchainBridgeWithdraw', () => {
     render(<AppchainBridgeWithdraw />);
 
     expect(mockWaitForWithdrawal).toHaveBeenCalled();
+  });
+
+  it('calls waitForWithdrawal with resumeWithdrawalTxHash when resumeWithdrawalTxHash is set', () => {
+    (useAppchainBridgeContext as Mock).mockReturnValue({
+      resumeWithdrawalTxHash: '0x123',
+      waitForWithdrawal: mockWaitForWithdrawal,
+    });
+
+    render(<AppchainBridgeWithdraw />);
+
+    expect(mockWaitForWithdrawal).toHaveBeenCalledWith('0x123');
   });
 
   it('disables claim button when buttonDisabled is true', () => {

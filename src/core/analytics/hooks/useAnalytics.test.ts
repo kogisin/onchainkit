@@ -1,13 +1,24 @@
+import {
+  type ONCHAIN_KIT_CONFIG,
+  getOnchainKitConfig,
+} from '@/core/OnchainKitConfig';
 import { ANALYTICS_API_URL } from '@/core/analytics/constants';
 import { WalletEvent } from '@/core/analytics/types';
 import { sendAnalytics } from '@/core/analytics/utils/sendAnalytics';
-import { useOnchainKit } from '@/useOnchainKit';
 import { cleanup, renderHook } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  type Mock,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest';
 import { useAnalytics } from './useAnalytics';
 
-vi.mock('@/useOnchainKit', () => ({
-  useOnchainKit: vi.fn(),
+vi.mock('@/core/OnchainKitConfig', () => ({
+  getOnchainKitConfig: vi.fn(),
 }));
 
 vi.mock('@/core/analytics/utils/sendAnalytics', () => ({
@@ -18,18 +29,32 @@ describe('useAnalytics', () => {
   const mockApiKey = 'test-api-key';
   const mockSessionId = 'test-session-id';
   const mockAnalyticsUrl = 'https://custom-analytics.example.com';
+  const mockOrigin = 'https://example.com';
 
   beforeEach(() => {
     vi.clearAllMocks();
 
-    (useOnchainKit as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      apiKey: mockApiKey,
-      sessionId: mockSessionId,
-      config: {
-        analytics: true,
-        analyticsUrl: mockAnalyticsUrl,
+    Object.defineProperty(window, 'location', {
+      configurable: true,
+      value: {
+        ...window.location,
+        origin: mockOrigin,
       },
     });
+
+    (getOnchainKitConfig as Mock).mockImplementation(
+      (key: keyof typeof ONCHAIN_KIT_CONFIG) => {
+        const config = {
+          apiKey: mockApiKey,
+          sessionId: mockSessionId,
+          config: {
+            analytics: true,
+            analyticsUrl: mockAnalyticsUrl,
+          },
+        };
+        return config[key as keyof typeof config];
+      },
+    );
   });
 
   afterEach(() => {
@@ -69,18 +94,24 @@ describe('useAnalytics', () => {
         timestamp: expect.any(Number),
         eventType: event,
         data,
+        origin: mockOrigin,
       },
     });
   });
 
   it('should not send analytics when disabled in config', () => {
-    (useOnchainKit as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      apiKey: mockApiKey,
-      sessionId: mockSessionId,
-      config: {
-        analytics: false,
+    (getOnchainKitConfig as Mock).mockImplementation(
+      (key: keyof typeof ONCHAIN_KIT_CONFIG) => {
+        const config = {
+          apiKey: mockApiKey,
+          sessionId: mockSessionId,
+          config: {
+            analytics: false,
+          },
+        };
+        return config[key as keyof typeof config];
       },
-    });
+    );
 
     const { result } = renderHook(() => useAnalytics());
     const event = WalletEvent.ConnectSuccess;
@@ -96,13 +127,18 @@ describe('useAnalytics', () => {
   });
 
   it('should use default analytics URL when not provided in config', () => {
-    (useOnchainKit as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      apiKey: mockApiKey,
-      sessionId: mockSessionId,
-      config: {
-        analytics: true,
+    (getOnchainKitConfig as Mock).mockImplementation(
+      (key: keyof typeof ONCHAIN_KIT_CONFIG) => {
+        const config = {
+          apiKey: mockApiKey,
+          sessionId: mockSessionId,
+          config: {
+            analytics: true,
+          },
+        };
+        return config[key as keyof typeof config];
       },
-    });
+    );
 
     const { result } = renderHook(() => useAnalytics());
     const event = WalletEvent.ConnectError;
@@ -123,13 +159,18 @@ describe('useAnalytics', () => {
   });
 
   it('should handle undefined apiKey and sessionId', () => {
-    (useOnchainKit as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
-      apiKey: undefined,
-      sessionId: undefined,
-      config: {
-        analytics: true,
+    (getOnchainKitConfig as Mock).mockImplementation(
+      (key: keyof typeof ONCHAIN_KIT_CONFIG) => {
+        const config = {
+          apiKey: undefined,
+          sessionId: undefined,
+          config: {
+            analytics: true,
+          },
+        };
+        return config[key as keyof typeof config];
       },
-    });
+    );
 
     const { result } = renderHook(() => useAnalytics());
     const event = WalletEvent.ConnectInitiated;

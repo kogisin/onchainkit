@@ -1,5 +1,7 @@
 'use client';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useAnalytics } from '../../core/analytics/hooks/useAnalytics';
+import { SwapEvent } from '../../core/analytics/types';
 import { TextInput } from '../../internal/components/TextInput';
 import { useValue } from '../../internal/hooks/useValue';
 import { getRoundedAmount } from '../../internal/utils/getRoundedAmount';
@@ -27,6 +29,7 @@ export function SwapAmountInput({
   swappableTokens,
 }: SwapAmountInputReact) {
   const { address, to, from, handleAmountChange } = useSwapContext();
+  const { sendAnalytics } = useAnalytics();
 
   const source = useValue(type === 'from' ? from : to);
   const destination = useValue(type === 'from' ? to : from);
@@ -51,12 +54,28 @@ export function SwapAmountInput({
     [handleAmountChange, type],
   );
 
+  const handleAnalyticsTokenSelected = useCallback(
+    (token: Token) => {
+      sendAnalytics(SwapEvent.TokenSelected, {
+        token: token.symbol,
+      });
+    },
+    [sendAnalytics],
+  );
+
   const handleSetToken = useCallback(
     (token: Token) => {
       source.setToken?.(token);
       handleAmountChange(type, source.amount, token);
+      handleAnalyticsTokenSelected(token);
     },
-    [source.amount, source.setToken, handleAmountChange, type],
+    [
+      source.amount,
+      source.setToken,
+      handleAmountChange,
+      handleAnalyticsTokenSelected,
+      type,
+    ],
   );
 
   // We are mocking the token selectors so I'm not able
@@ -85,13 +104,19 @@ export function SwapAmountInput({
       className={cn(
         background.secondary,
         border.radius,
-        'box-border flex h-[148px] w-full flex-col items-start p-4',
+        'my-0.5 box-border flex h-[148px] w-full flex-col items-start p-4',
         className,
       )}
       data-testid="ockSwapAmountInput_Container"
     >
-      <div className="flex w-full items-center justify-between">
-        <span className={cn(text.label2, color.foregroundMuted)}>{label}</span>
+      <div
+        className={cn(
+          text.label2,
+          color.foregroundMuted,
+          'flex w-full items-center justify-between',
+        )}
+      >
+        {label}
       </div>
       <div className="flex w-full items-center justify-between">
         <TextInput
@@ -120,27 +145,32 @@ export function SwapAmountInput({
           )
         )}
       </div>
-      <div className="mt-4 flex w-full justify-between">
-        <div className="flex items-center">
-          <span className={cn(text.label2, color.foregroundMuted)}>
-            {formatUSD(source.amountUSD)}
-          </span>
+      <div className="mt-4 flex w-full items-center justify-between">
+        <div className={cn(text.label2, color.foregroundMuted)}>
+          {formatUSD(source.amountUSD)}
         </div>
-        <span className={cn(text.label2, color.foregroundMuted)}>{''}</span>
-        <div className="flex items-center">
+        <div
+          className={cn(
+            text.label2,
+            color.foregroundMuted,
+            'flex grow items-center justify-end',
+          )}
+        >
           {source.balance && (
-            <span
-              className={cn(text.label2, color.foregroundMuted)}
-            >{`Balance: ${getRoundedAmount(source.balance, 8)}`}</span>
+            <span>{`Balance: ${getRoundedAmount(source.balance, 8)}`}</span>
           )}
           {type === 'from' && address && (
             <button
               type="button"
-              className="flex cursor-pointer items-center justify-center px-2 py-1"
+              className={cn(
+                text.label1,
+                color.primary,
+                'flex cursor-pointer items-center justify-center px-2 py-1',
+              )}
               data-testid="ockSwapAmountInput_MaxButton"
               onClick={handleMaxButtonClick}
             >
-              <span className={cn(text.label1, color.primary)}>Max</span>
+              Max
             </button>
           )}
         </div>

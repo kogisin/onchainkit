@@ -1,7 +1,6 @@
-import { useAnalytics } from '@/core/analytics/hooks/useAnalytics';
-import { MintEvent } from '@/core/analytics/types';
 import { QuantitySelector } from '@/internal/components/QuantitySelector';
 import { useNFTContext } from '@/nft/components/NFTProvider';
+import { useMintAnalytics } from '@/nft/hooks/useMintAnalytics';
 import { cn } from '@/styles/theme';
 
 type NFTQuantitySelectorReact = {
@@ -10,29 +9,26 @@ type NFTQuantitySelectorReact = {
 
 export function NFTQuantitySelector({ className }: NFTQuantitySelectorReact) {
   const { maxMintsPerWallet, setQuantity } = useNFTContext();
-  const { sendAnalytics } = useAnalytics();
+  const { handleQuantityChange } = useMintAnalytics();
 
   // if max is 1, no need to show quantity selector
   if (maxMintsPerWallet === 1) {
     return null;
   }
 
-  const handleQuantityChange = (newValue: string) => {
-    const newQuantity = Number.parseInt(newValue, 10);
-
-    if (!Number.isNaN(newQuantity)) {
-      sendAnalytics(MintEvent.MintQuantityChanged, {
-        quantity: newQuantity,
-      });
+  const handleQuantityUpdate = (value: string) => {
+    setQuantity(value);
+    const quantity = Number.parseInt(value, 10);
+    if (!Number.isNaN(quantity)) {
+      handleQuantityChange(quantity);
     }
-    setQuantity(newValue);
   };
 
   return (
     <div className={cn('py-1', className)}>
       <QuantitySelector
         className={className}
-        onChange={handleQuantityChange}
+        onChange={handleQuantityUpdate}
         minQuantity={1}
         maxQuantity={maxMintsPerWallet}
         placeholder=""

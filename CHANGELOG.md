@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.37.6
+
+### Patch Changes
+
+- c2d4c67: - **fix**: Updated internal caching, resulting in performance improvements for components such as `Identity`, `Swap`, `Wallet`, and `NFT` components. By @cpcramer #2085
+  - **fix**: Moved `<TransactionButton/>` styling to configurable parent. By @alessey #2070
+  - **fix**: Updated `Wallet` and `Checkout` component events. By @cpcramer #2061 #2053
+  - **feat**: Added API endpoint `getPriceQuote`. By @brendan-defi #2065
+
+## 0.37.5
+
+### Patch Changes
+
+- **fix** updated useOutsideClick to handle portals. fixes issue with WalletAdvancedSwap. by @brendan-defi #2043
+- **feat** implemented telemetry for Swap and Buy. by @cpcramer #1964, #1969
+- **feat** improved Earn accessibility. by @dschlabach #2045, #2048, #2044
+- **feat** added AppchainBridge exports. by @0xAlec #2052
+
+## 0.37.4
+
+### Patch Changes
+
+- **feat**: Added Transaction Telemetry. By @cpcramer #1965
+- **chore**: Added origin to analytics. By @cpcramer #2015
+- **fix**: Added OnchainKit error boundary. By @alessey #2019
+- **feat**: Added NFTMintButton analytics. By @cpcramer #2027
+- **feat**: Exposed handleFetchPrice on top-level AppchainBridge component. By @0xAlec #2034
+- **feat**: Added success state to AppchainBridge. By @0xAlec #2035
+- **feat** added `AppchainBridgeResumeTransaction`. by @0xAlec #2038
+
+## 0.37.3
+
+### Patch Changes
+
+- **fix**: Revert Mint changes that were causing an infinite loop in `NFTMintButton`. By @cpcramer #2031
+
+## 0.37.2
+
+### Patch Changes
+
+- **fix**: Improve chain support for non Base transactions. By @dschlabach #2016
+- **docs**: Documentation updates and improvements. By @dschlabach @maximevtush @kilavvy
+
 ## 0.37.1
 
 ### Patch Changes

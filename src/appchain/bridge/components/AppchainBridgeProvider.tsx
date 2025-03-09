@@ -1,40 +1,32 @@
+import { getChainExplorer } from '@/core/network/getChainExplorer';
 import { useValue } from '@/internal/hooks/useValue';
 import { baseSvg } from '@/internal/svg/baseSvg';
 import { coinbaseLogoSvg } from '@/internal/svg/coinbaseLogoSvg';
 import { toReadableAmount } from '@/swap/utils/toReadableAmount';
 import type { Token } from '@/token';
 import {
-  type ReactNode,
   createContext,
   useCallback,
   useContext,
   useEffect,
   useState,
 } from 'react';
-import { type Address, type Chain, erc20Abi } from 'viem';
-import { base } from 'viem/chains';
+import { type Address, type Hex, erc20Abi } from 'viem';
 import { useAccount, useConfig } from 'wagmi';
 import { getBalance, readContract } from 'wagmi/actions';
 import { DEFAULT_BRIDGEABLE_TOKENS } from '../constants';
 import { useChainConfig } from '../hooks/useAppchainConfig';
 import { useDeposit } from '../hooks/useDeposit';
 import { useWithdraw } from '../hooks/useWithdraw';
-import type { Appchain, BridgeableToken, ChainWithIcon } from '../types';
+import type { ChainWithIcon } from '../types';
 import type { BridgeParams } from '../types';
 import type { AppchainBridgeContextType } from '../types';
+import type { AppchainBridgeProviderReact } from '../types';
 import { defaultPriceFetcher } from '../utils/defaultPriceFetcher';
 
 const AppchainBridgeContext = createContext<
   AppchainBridgeContextType | undefined
 >(undefined);
-
-interface AppchainBridgeProviderProps {
-  children: ReactNode;
-  chain: Chain;
-  appchain: Appchain;
-  bridgeableTokens?: BridgeableToken[];
-  handleFetchPrice?: (amount: string, token: Token) => Promise<string>;
-}
 
 export const AppchainBridgeProvider = ({
   children,
@@ -42,7 +34,7 @@ export const AppchainBridgeProvider = ({
   appchain,
   bridgeableTokens = DEFAULT_BRIDGEABLE_TOKENS,
   handleFetchPrice = defaultPriceFetcher,
-}: AppchainBridgeProviderProps) => {
+}: AppchainBridgeProviderReact) => {
   // Source network
   const [from, setFrom] = useState<ChainWithIcon>({
     ...chain,
@@ -90,8 +82,12 @@ export const AppchainBridgeProvider = ({
   const [isPriceLoading, setIsPriceLoading] = useState(false);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [isWithdrawModalOpen, setIsWithdrawModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isResumeTransactionModalOpen, setIsResumeTransactionModalOpen] =
+    useState(false);
   const direction = from.id === chain.id ? 'deposit' : 'withdraw';
   const [balance, setBalance] = useState<string>('');
+  const [resumeWithdrawalTxHash, setResumeWithdrawalTxHash] = useState<Hex>();
 
   // Deposit
   const {
@@ -105,6 +101,7 @@ export const AppchainBridgeProvider = ({
     withdrawStatus,
     waitForWithdrawal,
     proveAndFinalizeWithdrawal,
+    finalizedWithdrawalTxHash,
     resetWithdrawStatus,
   } = useWithdraw({
     config,
@@ -225,41 +222,51 @@ export const AppchainBridgeProvider = ({
     }));
   }, []);
 
+  const handleResumeTransaction = useCallback((txHash: Hex) => {
+    setResumeWithdrawalTxHash(txHash);
+    setIsResumeTransactionModalOpen(false);
+  }, []);
+
+  const handleOpenExplorer = useCallback(() => {
+    const blockExplorerUrl = getChainExplorer(chain.id);
+    const txHash =
+      depositStatus === 'depositSuccess'
+        ? depositTransactionHash
+        : finalizedWithdrawalTxHash;
+    window.open(`${blockExplorerUrl}/tx/${txHash}`, '_blank');
+  }, [
+    chain.id,
+    depositStatus,
+    depositTransactionHash,
+    finalizedWithdrawalTxHash,
+  ]);
+
   const handleDeposit = useCallback(async () => {
-    const blockExplorerUrl =
-      from.id === base.id
-        ? 'https://basescan.org/tx/'
-        : 'https://sepolia.basescan.org/tx/';
-
-    if (depositStatus === 'depositSuccess') {
-      window.open(`${blockExplorerUrl}${depositTransactionHash}`, '_blank');
-      return;
-    }
-
     await deposit({
       config,
       from,
       bridgeParams,
     });
-  }, [
-    deposit,
-    depositStatus,
-    config,
-    from,
-    bridgeParams,
-    depositTransactionHash,
-  ]);
+  }, [deposit, config, from, bridgeParams]);
 
   const handleWithdraw = useCallback(async () => {
     await withdraw();
   }, [withdraw]);
 
-  // Open withdraw modal when withdraw is successful
+  const handleResetState = useCallback(() => {
+    setIsSuccessModalOpen(false);
+    setIsWithdrawModalOpen(false);
+    setIsResumeTransactionModalOpen(false);
+
+    setResumeWithdrawalTxHash(undefined);
+  }, []);
+
+  // Open withdraw modal when withdraw is successful, or when transaction is resumed
   useEffect(() => {
-    if (withdrawStatus === 'withdrawSuccess') {
+    if (withdrawStatus === 'withdrawSuccess' || resumeWithdrawalTxHash) {
       setIsWithdrawModalOpen(true);
     }
-  }, [withdrawStatus]);
+  }, [withdrawStatus, resumeWithdrawalTxHash]);
 
   // Reset withdraw status when withdraw modal is closed
   useEffect(() => {
@@ -267,6 +274,20 @@ export const AppchainBridgeProvider = ({
       resetWithdrawStatus();
     }
   }, [isWithdrawModalOpen, resetWithdrawStatus]);
+
+  // Open success modal when deposit is successful
+  useEffect(() => {
+    if (depositStatus === 'depositSuccess') {
+      setIsSuccessModalOpen(true);
+    }
+  }, [depositStatus]);
+
+  // Open success modal when withdraw is successful
+  useEffect(() => {
+    if (withdrawStatus === 'claimSuccess') {
+      setIsSuccessModalOpen(true);
+    }
+  }, [withdrawStatus]);
 
   const value = useValue({
     // Internal
@@ -287,14 +308,29 @@ export const AppchainBridgeProvider = ({
     setIsAddressModalOpen,
     handleAddressSelect,
 
+    // Success modal
+    isSuccessModalOpen,
+    setIsSuccessModalOpen,
+    handleOpenExplorer,
+    handleResetState,
+
+    // Resume transaction modal
+    isResumeTransactionModalOpen,
+    setIsResumeTransactionModalOpen,
+    resumeWithdrawalTxHash,
+    setResumeWithdrawalTxHash,
+    handleResumeTransaction,
+
     // Deposits and Withdrawals
     handleDeposit,
     depositStatus,
+    depositTransactionHash,
     direction,
     handleWithdraw,
     withdrawStatus,
     waitForWithdrawal,
     proveAndFinalizeWithdrawal,
+    finalizedWithdrawalTxHash,
     isWithdrawModalOpen,
     setIsWithdrawModalOpen,
     resetDepositStatus,

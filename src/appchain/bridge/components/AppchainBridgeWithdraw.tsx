@@ -1,4 +1,5 @@
 import { Spinner } from '@/internal/components/Spinner';
+import { ErrorSvg } from '@/internal/svg/fullWidthErrorSvg';
 import { SuccessSvg } from '@/internal/svg/fullWidthSuccessSvg';
 import { border, cn, color, pressable, text } from '@/styles/theme';
 import { useEffect, useMemo } from 'react';
@@ -10,10 +11,11 @@ export const AppchainBridgeWithdraw = () => {
     withdrawStatus,
     waitForWithdrawal,
     proveAndFinalizeWithdrawal,
-    setIsWithdrawModalOpen,
+    resumeWithdrawalTxHash,
+    handleResetState,
   } = useAppchainBridgeContext();
 
-  const { isSuccess, buttonDisabled, buttonContent, shouldShowClaim, label } =
+  const { buttonDisabled, buttonContent, shouldShowClaim, label, isError } =
     useWithdrawButton({
       withdrawStatus,
     });
@@ -24,8 +26,12 @@ export const AppchainBridgeWithdraw = () => {
         // If appchain withdrawal is successful, wait for claim to be ready
         waitForWithdrawal();
       }
+      if (resumeWithdrawalTxHash) {
+        // If the user has resumed a withdrawal transaction, wait for claim to be ready
+        waitForWithdrawal(resumeWithdrawalTxHash);
+      }
     })();
-  }, [withdrawStatus, waitForWithdrawal]);
+  }, [withdrawStatus, waitForWithdrawal, resumeWithdrawalTxHash]);
 
   const buttonStyles = cn(
     pressable.primary,
@@ -57,26 +63,6 @@ export const AppchainBridgeWithdraw = () => {
     [],
   );
 
-  const SuccessContent = useMemo(
-    () => () => (
-      <div className="flex flex-col items-center gap-16">
-        <SuccessIcon />
-        <button
-          onClick={() => setIsWithdrawModalOpen(false)}
-          className={buttonStyles}
-          type="button"
-        >
-          <div
-            className={cn(text.headline, color.inverse, 'flex justify-center')}
-          >
-            Back to Bridge
-          </div>
-        </button>
-      </div>
-    ),
-    [buttonStyles, setIsWithdrawModalOpen],
-  );
-
   const ClaimContent = useMemo(
     () => () => (
       <div className="flex flex-col items-center gap-16">
@@ -97,9 +83,44 @@ export const AppchainBridgeWithdraw = () => {
     [buttonStyles, buttonDisabled, buttonContent, proveAndFinalizeWithdrawal],
   );
 
+  const ErrorContent = useMemo(
+    () => () => (
+      <div className="flex flex-col items-center gap-16">
+        <div className="flex justify-center">
+          <div className="h-20 w-20">
+            <ErrorSvg fill="var(--ock-bg-error)" />
+          </div>
+        </div>
+        <div className="flex flex-col items-center gap-4">
+          <span className="px-4 text-center font-medium text-base">
+            There was an error processing your withdrawal.
+            <br />
+            If the issue persists, please contact support.
+          </span>
+          <button
+            onClick={handleResetState}
+            className={buttonStyles}
+            type="button"
+          >
+            <div
+              className={cn(
+                text.headline,
+                color.inverse,
+                'flex justify-center',
+              )}
+            >
+              Back to bridge
+            </div>
+          </button>
+        </div>
+      </div>
+    ),
+    [handleResetState, buttonStyles],
+  );
+
   const renderContent = () => {
-    if (isSuccess) {
-      return <SuccessContent />;
+    if (isError) {
+      return <ErrorContent />;
     }
     return shouldShowClaim ? <ClaimContent /> : <LoadingContent />;
   };

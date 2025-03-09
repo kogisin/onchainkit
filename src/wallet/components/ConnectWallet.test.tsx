@@ -148,7 +148,6 @@ describe('ConnectWallet', () => {
       WalletEvent.ConnectInitiated,
       {
         component: 'ConnectWallet',
-        walletProvider: 'TestConnector',
       },
     );
 
@@ -613,8 +612,7 @@ describe('ConnectWallet', () => {
       expect(mockSendAnalytics).toHaveBeenCalledWith(
         WalletEvent.ConnectInitiated,
         {
-          component: 'ConnectWallet',
-          walletProvider: 'TestConnector',
+          component: 'WalletModal',
         },
       );
     });
@@ -636,7 +634,6 @@ describe('ConnectWallet', () => {
         WalletEvent.ConnectInitiated,
         {
           component: 'ConnectWallet',
-          walletProvider: 'TestConnector',
         },
       );
     });
